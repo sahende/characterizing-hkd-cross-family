@@ -1,0 +1,23 @@
+# Core dependencies
+torch>=2.0.0
+transformers>=4.36.0,<5.0.0
+datasets>=2.19.0
+tokenizers>=0.15.0,<1.0.0
+accelerate>=0.25.0
+
+# Classical ML
+scikit-learn==1.8.0
+scipy==1.17.1
+
+# Data processing
+pandas==3.0.2
+numpy==2.4.4
+
+# Visualization
+matplotlib==3.10.9
+seaborn==0.13.2
+
+# Utilities
+tqdm==4.67.3
+tabulate==0.10.0
+psutil==6.0.0

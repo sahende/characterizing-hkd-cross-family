@@ -1,0 +1,50 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Local environments and generated assets
+env/
+.venv/
+venv/
+ENV/
+models/
+data/
+.cache/
+
+# Local configuration and credentials
+.env
+.env.*
+
+# IDE and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated logs and caches
+*.log
+logs/
+.pytest_cache/
+.coverage
+htmlcov/
+wandb/
+
+# Model and binary artifacts
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.cubin
+
+# Hugging Face lock files
+hf_*
+*.lock
