@@ -216,10 +216,10 @@ gpt2
 gpt-neo-125M
 ```
 
-Select a model through `CENG467_MODEL`:
+Select a model through `PROJECT_MODEL`:
 
 ```powershell
-$env:CENG467_MODEL = "bert-base-uncased"
+$env:PROJECT_MODEL = "bert-base-uncased"
 ```
 
 Download the configured teacher model, tokenizer, and GLUE data:

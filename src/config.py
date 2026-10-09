@@ -32,10 +32,10 @@ class Config:
             "directory": "gpt-neo-125M",
         },
     }
-    MODEL_NAME = os.environ.get("CENG467_MODEL", "gpt-neo-125M")
+    MODEL_NAME = os.environ.get("PROJECT_MODEL", "gpt-neo-125M")
     if MODEL_NAME not in MODEL_REGISTRY:
         raise ValueError(
-            f"Unknown CENG467_MODEL={MODEL_NAME!r}. "
+            f"Unknown PROJECT_MODEL={MODEL_NAME!r}. "
             f"Choose one of: {', '.join(MODEL_REGISTRY)}"
         )
     MODEL_SOURCE = MODEL_REGISTRY[MODEL_NAME]["source"]
