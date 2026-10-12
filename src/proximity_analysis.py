@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn.functional as F
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -15,6 +16,9 @@ from torch.utils.data import DataLoader
 from config import Config
 
 
+USE_CORRECTED_FOR_PLOTS = True
+
+
 # Linear CKA following Kornblith et al. (2019).
 def cka(X, Y):
     """
@@ -26,6 +30,9 @@ def cka(X, Y):
     Returns:
         CKA similarity in [0, 1]
     """
+    
+    X = X.double()
+    Y = Y.double()
     X = X - X.mean(0, keepdim=True)
     Y = Y - Y.mean(0, keepdim=True)
 
@@ -33,7 +40,9 @@ def cka(X, Y):
     Y_gram = Y @ Y.T
 
     n = X_gram.shape[0]
-    H = torch.eye(n, device=X.device) - torch.ones(n, n, device=X.device) / n
+    H = torch.eye(n, device=X.device, dtype=X.dtype) - torch.ones(
+        n, n, device=X.device, dtype=X.dtype
+    ) / n
     X_gram_centered = H @ X_gram @ H
     Y_gram_centered = H @ Y_gram @ H
 
@@ -138,6 +147,37 @@ def get_model_and_tokenizer(base_model, task_name, path, device):
     return model, tokenizer
 
 
+# Artifact-free pooling: per-token LayerNorm + first real token excluded.
+def pool_tokens(h, mask, drop_first=True, token_ln=True):
+    """
+    Masked mean-pooling with outlier-dimension / attention-sink correction.
+
+    Args:
+        h:    (B, T, D) hidden states
+        mask: (B, T) attention mask (long/int)
+    Steps:
+        1) token_ln: parameter-free LayerNorm over D for every token, so
+           pre-LN (decoder) and post-LN (encoder) layers are on the same scale
+           and a few massive-activation dimensions cannot dominate.
+        2) drop_first: exclude the first real token (CLS / BOS / first word),
+           which acts as an attention sink and carries the massive activations.
+           Works for both left and right padding (first position with mask=1).
+    """
+    h = h.float()
+    if token_ln:
+        h = F.layer_norm(h, h.shape[-1:])
+
+    m = mask.clone().float()
+    if drop_first:
+        first = mask.argmax(dim=1)                      # first position with mask == 1
+        length = mask.sum(1)
+        rows = torch.arange(mask.size(0), device=mask.device)
+        drop = (length > 1).float()                     # never drop the only token
+        m[rows, first] = m[rows, first] * (1.0 - drop)
+    m = m.unsqueeze(-1)
+    return (h * m).sum(1) / m.sum(1).clamp(min=1e-9)
+
+
 # Representation extraction from the final layer and final four layers.
 def get_representations_and_logits(
     model, tokenizer, dataset, device, batch_size=16, is_single_sentence=True
@@ -145,10 +185,11 @@ def get_representations_and_logits(
     """
     Extract mean-pooled hidden representations and logits.
 
-    Returns:
-        reps_last: (n, d) last-layer mean-pooled representations
-        reps_avg4: (n, d) average of last 4 layers (mean-pooled)
-        logits:    (n, num_labels)
+    Returns dict with:
+        last_raw, avg4_raw:   original pooling (as in the first version)
+        last_corr, avg4_corr: per-token LN + first token dropped
+        logits:               (n, num_labels)
+        lengths:              (n,) number of real tokens
     """
 
     def preprocess(examples):
@@ -178,9 +219,8 @@ def get_representations_and_logits(
     tokenized.set_format(type="torch", columns=format_columns)
     dataloader = DataLoader(tokenized, batch_size=batch_size, shuffle=False)
 
-    all_reps_last = []
-    all_reps_avg4 = []
-    all_logits = []
+    out = {k: [] for k in
+           ["last_raw", "avg4_raw", "last_corr", "avg4_corr", "logits", "lengths"]}
 
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Extracting", leave=False):
@@ -189,33 +229,58 @@ def get_representations_and_logits(
 
             logits = outputs.logits
             hidden_states = outputs.hidden_states
+            attn = inputs["attention_mask"]
 
-            mask = inputs["attention_mask"].unsqueeze(-1).float()
+            mask = attn.unsqueeze(-1).float()
             mask_sum = torch.clamp(mask.sum(1), min=1e-9)
 
-            # Mean-pool the final hidden layer.
+            # ---- RAW (original) pooling ----
             last_hidden = hidden_states[-1]
             pooled_last = (last_hidden * mask).sum(1) / mask_sum
 
-            # Mean-pool the average of the final four hidden layers.
             last4 = torch.stack(hidden_states[-4:], dim=0)  # (4, B, T, D)
-            last4_mean = last4.mean(0)  # (B, T, D)
+            last4_mean = last4.mean(0)                      # (B, T, D)
             pooled_avg4 = (last4_mean * mask).sum(1) / mask_sum
 
-            all_reps_last.append(pooled_last.cpu())
-            all_reps_avg4.append(pooled_avg4.cpu())
-            all_logits.append(logits.cpu())
+            # ---- CORRECTED pooling ----
+            corr_last = pool_tokens(hidden_states[-1], attn, True, True)
 
-    return (
-        torch.cat(all_reps_last, dim=0),
-        torch.cat(all_reps_avg4, dim=0),
-        torch.cat(all_logits, dim=0),
-    )
+            # Her katman ayrı ayrı token-LN'den geçer, sonra ortalanır.
+            last4_n = F.layer_norm(last4.float(), last4.shape[-1:])
+            corr_avg4 = pool_tokens(last4_n.mean(0), attn, True, False)
+
+            out["last_raw"].append(pooled_last.cpu())
+            out["avg4_raw"].append(pooled_avg4.cpu())
+            out["last_corr"].append(corr_last.cpu())
+            out["avg4_corr"].append(corr_avg4.cpu())
+            out["logits"].append(logits.cpu())
+            out["lengths"].append(attn.sum(1).cpu())
+
+    return {k: torch.cat(v, dim=0) for k, v in out.items()}
+
+
+
+def diagnose(reps, lengths, k=5):
+    X = reps.double()
+    X = X - X.mean(0, keepdim=True)
+    var = X.var(0)
+    top = torch.topk(var, k)
+    share = float(top.values.sum() / var.sum().clamp(min=1e-30))
+
+    _, _, Vh = torch.linalg.svd(X, full_matrices=False)
+    pc1 = X @ Vh[0]
+    L = lengths.double()
+    if pc1.std() < 1e-12 or L.std() < 1e-12:
+        corr = float("nan")
+    else:
+        corr = float(torch.corrcoef(torch.stack([pc1, L]))[0, 1])
+    return share, corr, top.indices.tolist()
 
 
 # Analysis for one task, dataset-size, and seed group.
 def run_analysis_for_group(
-    task_name, dataset_size_str, seed_str, teacher_paths, device
+    task_name, dataset_size_str, seed_str, teacher_paths, device,
+    records, diag_records,
 ):
     """Run proximity analysis for a specific (task, size, seed) group."""
     print(f"\n{'='*70}")
@@ -246,8 +311,7 @@ def run_analysis_for_group(
 
     raw_dataset = load_from_disk(dataset_path)["validation"]
 
-    reps_last = {}
-    reps_avg4 = {}
+    reps = {"last_raw": {}, "avg4_raw": {}, "last_corr": {}, "avg4_corr": {}}
     soft_labels = {}
 
     print("Extracting representations and soft labels per model...")
@@ -257,47 +321,63 @@ def run_analysis_for_group(
             model, tokenizer = get_model_and_tokenizer(
                 base_model, task_name, path, device
             )
-            r_last, r_avg4, logits = get_representations_and_logits(
+            res = get_representations_and_logits(
                 model,
                 tokenizer,
                 raw_dataset,
                 device,
                 is_single_sentence=is_single_sentence,
             )
-            reps_last[base_model] = r_last
-            reps_avg4[base_model] = r_avg4
+            for key in reps:
+                reps[key][base_model] = res[key]
             # Use untempered distributions for model-level similarity.
-            soft_labels[base_model] = F.softmax(logits, dim=-1)
+            soft_labels[base_model] = F.softmax(res["logits"], dim=-1)
+
+            # Diagnostics (artifact check)
+            for key in reps:
+                share, corr, dims = diagnose(res[key], res["lengths"])
+                diag_records.append({
+                    "task": task_name, "size": dataset_size_str, "seed": seed_str,
+                    "model": base_model, "representation": key,
+                    "top5_dim_variance_share": share,
+                    "pc1_length_corr": corr,
+                    "top5_dims": " ".join(map(str, dims)),
+                })
 
             del model, tokenizer
             torch.cuda.empty_cache()
         except Exception as e:
             print(f"    Failed for {base_model}: {e}")
 
-    names = list(reps_last.keys())
+    names = list(reps["last_raw"].keys())
     n = len(names)
     if n < 2:
         print("Not enough successful extractions. Skipping.")
         return None
 
     # Compute pairwise representation and output-space similarities.
-    cka_last = np.zeros((n, n))
-    cka_avg4 = np.zeros((n, n))
+    mats = {k: np.zeros((n, n)) for k in reps}
     jsd_mat = np.zeros((n, n))       # raw JSD (nats), T=1
     jsd_norm_mat = np.zeros((n, n))  # JSD / log(2), in [0, 1]
 
     for i in range(n):
         for j in range(n):
-            cka_last[i, j] = cka(reps_last[names[i]], reps_last[names[j]])
-            cka_avg4[i, j] = cka(reps_avg4[names[i]], reps_avg4[names[j]])
+            for key in reps:
+                mats[key][i, j] = cka(reps[key][names[i]], reps[key][names[j]])
             jsd_mat[i, j] = jensen_shannon_divergence(
                 soft_labels[names[i]], soft_labels[names[j]]
             )
             jsd_norm_mat[i, j] = jsd_mat[i, j] / np.log(2.0)
 
+    # Matrices used for plots / global average
+    suffix_sel = "corr" if USE_CORRECTED_FOR_PLOTS else "raw"
+    cka_last = mats[f"last_{suffix_sel}"]
+    cka_avg4 = mats[f"avg4_{suffix_sel}"]
+
     # Report pairwise similarities.
     print("\n" + "-" * 86)
-    print(f"PROXIMITY TABLE ({task_name.upper()} - {dataset_size_str})")
+    print(f"PROXIMITY TABLE ({task_name.upper()} - {dataset_size_str}) "
+          f"[{'corrected' if USE_CORRECTED_FOR_PLOTS else 'raw'}]")
     print("-" * 86)
     print(
         f"{'Model Pair':<30} | {'CKA(last)':<9} | {'CKA(avg4)':<9} | "
@@ -311,11 +391,30 @@ def run_analysis_for_group(
                 f"{pair_name:<30} | {cka_last[i,j]:.3f}     | {cka_avg4[i,j]:.3f}     | "
                 f"{jsd_mat[i,j]:.3f}     | {jsd_norm_mat[i,j]:.3f}"
             )
+            records.append({
+                "task": task_name, "size": dataset_size_str, "seed": seed_str,
+                "model_a": names[i], "model_b": names[j],
+                "cka_last_corrected": mats["last_corr"][i, j],
+                "cka_avg4_corrected": mats["avg4_corr"][i, j],
+                "cka_last_raw": mats["last_raw"][i, j],
+                "cka_avg4_raw": mats["avg4_raw"][i, j],
+                "jsd_nats": jsd_mat[i, j],
+                "jsd_norm": jsd_norm_mat[i, j],
+            })
 
     # Prepare the output directory.
     out_dir = Path(Config.PROJECT_ROOT) / "results" / "proximity"
     out_dir.mkdir(exist_ok=True, parents=True)
     file_suffix = f"{task_name}_{dataset_size_str}_seed{seed_str}"
+
+    # Ham matrisleri de kaydet (tekrar hesaplamadan tablo üretmek için).
+    np.savez(
+        out_dir / f"matrices_{file_suffix}.npz",
+        names=np.array(names),
+        cka_last_raw=mats["last_raw"], cka_avg4_raw=mats["avg4_raw"],
+        cka_last_corr=mats["last_corr"], cka_avg4_corr=mats["avg4_corr"],
+        jsd=jsd_mat, jsd_norm=jsd_norm_mat,
+    )
 
     # Visualize CKA and normalized JSD in three panels.
     fig, axes = plt.subplots(1, 3, figsize=(22, 6))
@@ -354,6 +453,10 @@ def run_analysis_for_group(
 
     print(f"\nSaved heatmaps to {heatmaps_path}")
     print(f"Saved dendrogram to {dendrogram_path}")
+
+    # Her grup sonunda CSV'leri güncelle (çökme olursa sonuç kaybolmasın).
+    pd.DataFrame(records).to_csv(out_dir / "proximity_pairs_per_config.csv", index=False)
+    pd.DataFrame(diag_records).to_csv(out_dir / "artifact_diagnostics.csv", index=False)
 
     return names, cka_last, cka_avg4, jsd_mat, jsd_norm_mat
 
@@ -419,8 +522,13 @@ def main():
     global_jsd_norm_sum = np.zeros((n_models, n_models))
     global_counts = np.zeros((n_models, n_models))
 
+    records = []       # per-config pair rows -> CSV
+    diag_records = []  # artifact diagnostics  -> CSV
+
     for (task, size_str, seed_str), teacher_paths in valid_groups.items():
-        res = run_analysis_for_group(task, size_str, seed_str, teacher_paths, device)
+        res = run_analysis_for_group(
+            task, size_str, seed_str, teacher_paths, device, records, diag_records
+        )
         if res is None:
             continue
         names, cka_last, cka_avg4, jsd_mat, jsd_norm_mat = res
@@ -460,7 +568,8 @@ def main():
                 avg_jsd_norm[x, y] = global_jsd_norm_sum[i, j] / global_counts[i, j]
 
     # Print global table
-    print("\nGLOBAL AVERAGE PROXIMITY TABLE")
+    print("\nGLOBAL AVERAGE PROXIMITY TABLE "
+          f"[{'corrected' if USE_CORRECTED_FOR_PLOTS else 'raw'}]")
     print("-" * 86)
     print(
         f"{'Model Pair':<30} | {'CKA(last)':<9} | {'CKA(avg4)':<9} | "
@@ -516,6 +625,52 @@ def main():
 
     print(f"\nSaved GLOBAL AVERAGE heatmaps to {heatmaps_path}")
     print(f"Saved GLOBAL AVERAGE dendrogram to {dendrogram_path}")
+
+    # ------------------------------------------------------------------
+    # CSV outputs
+    # ------------------------------------------------------------------
+    if records:
+        df = pd.DataFrame(records)
+        metric_cols = [
+            "cka_last_corrected", "cka_avg4_corrected",
+            "cka_last_raw", "cka_avg4_raw", "jsd_nats", "jsd_norm",
+        ]
+
+        df.to_csv(out_dir / "proximity_pairs_per_config.csv", index=False)
+
+        glob = (
+            df.groupby(["model_a", "model_b"])[metric_cols]
+            .mean()
+            .assign(n_configs=df.groupby(["model_a", "model_b"]).size())
+            .reset_index()
+            .sort_values("cka_last_corrected", ascending=False)
+        )
+        glob.to_csv(out_dir / "proximity_pairs_global_average.csv", index=False)
+
+        per_task = (
+            df.groupby(["task", "model_a", "model_b"])[metric_cols]
+            .mean()
+            .assign(n_configs=df.groupby(["task", "model_a", "model_b"]).size())
+            .reset_index()
+        )
+        per_task.to_csv(out_dir / "proximity_pairs_per_task.csv", index=False)
+
+        print(f"Saved CSVs to {out_dir}:")
+        print("  - proximity_pairs_per_config.csv")
+        print("  - proximity_pairs_per_task.csv")
+        print("  - proximity_pairs_global_average.csv")
+
+    if diag_records:
+        ddf = pd.DataFrame(diag_records)
+        ddf.to_csv(out_dir / "artifact_diagnostics.csv", index=False)
+        summary = (
+            ddf.groupby(["model", "representation"])[
+                ["top5_dim_variance_share", "pc1_length_corr"]
+            ].mean().reset_index()
+        )
+        summary.to_csv(out_dir / "artifact_diagnostics_summary.csv", index=False)
+        print("  - artifact_diagnostics.csv / artifact_diagnostics_summary.csv")
+
     print("\nAll Analysis Complete!")
 
 

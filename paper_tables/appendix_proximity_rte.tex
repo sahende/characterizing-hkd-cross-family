@@ -1,0 +1,19 @@
+\begin{table}[!ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+& \textbf{BERT} & \textbf{RoBERTa} & \textbf{ELECTRA} & \textbf{GPT-2} & \textbf{GPT-Neo} & \textbf{OPT} \\
+\midrule
+BERT & 1.00 & 0.31 & 0.30 & 0.20 & 0.63 & 0.69 \\
+RoBERTa & 0.31 & 1.00 & 0.36 & 0.17 & 0.23 & 0.32 \\
+ELECTRA & 0.30 & 0.36 & 1.00 & 0.23 & 0.19 & 0.26 \\
+GPT-2 & 0.20 & 0.17 & 0.23 & 1.00 & 0.18 & 0.21 \\
+GPT-Neo & 0.63 & 0.23 & 0.19 & 0.18 & 1.00 & 0.72 \\
+OPT & 0.69 & 0.32 & 0.26 & 0.21 & 0.72 & 1.00 \\
+\bottomrule
+\end{tabular}
+\caption{RTE proximity matrix (CKA last).}
+\label{tab:proximity_rte}
+\end{table}

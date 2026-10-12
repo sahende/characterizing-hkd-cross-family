@@ -1,0 +1,28 @@
+\begin{table}[!ht]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model Pair} & \textbf{CKA(last)} & \textbf{CKA(avg4)} & \textbf{JSD} \\
+\midrule
+GPT-Neo $\leftrightarrow$ OPT & 0.603 & 0.669 & 0.160 \\
+RoBERTa $\leftrightarrow$ ELECTRA & 0.601 & 0.611 & 0.092 \\
+BERT $\leftrightarrow$ OPT & 0.530 & 0.615 & 0.155 \\
+BERT $\leftrightarrow$ RoBERTa & 0.515 & 0.534 & 0.112 \\
+BERT $\leftrightarrow$ ELECTRA & 0.506 & 0.597 & 0.106 \\
+BERT $\leftrightarrow$ GPT-Neo & 0.405 & 0.511 & 0.157 \\
+RoBERTa $\leftrightarrow$ OPT & 0.367 & 0.422 & 0.139 \\
+ELECTRA $\leftrightarrow$ OPT & 0.341 & 0.513 & 0.150 \\
+GPT-2 $\leftrightarrow$ OPT & 0.300 & 0.719 & 0.136 \\
+BERT $\leftrightarrow$ GPT-2 & 0.245 & 0.570 & 0.121 \\
+GPT-2 $\leftrightarrow$ GPT-Neo & 0.242 & 0.700 & 0.120 \\
+RoBERTa $\leftrightarrow$ GPT-Neo & 0.228 & 0.297 & 0.163 \\
+ELECTRA $\leftrightarrow$ GPT-2 & 0.214 & 0.466 & 0.114 \\
+ELECTRA $\leftrightarrow$ GPT-Neo & 0.205 & 0.377 & 0.158 \\
+RoBERTa $\leftrightarrow$ GPT-2 & 0.203 & 0.354 & 0.119 \\
+\bottomrule
+\end{tabular}
+\caption{Global-average model proximity metrics across all settings (task-equal weighting: each GLUE task contributes equally).}
+\label{tab:proximity}
+\end{table}

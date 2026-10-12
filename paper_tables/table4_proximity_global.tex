@@ -1,0 +1,28 @@
+\begin{table}[!ht]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model Pair} & \textbf{CKA(last)} & \textbf{CKA(avg4)} & \textbf{JSD} \\
+\midrule
+RoBERTa $\leftrightarrow$ ELECTRA & 0.606 & 0.604 & 0.089 \\
+GPT-Neo $\leftrightarrow$ OPT & 0.573 & 0.640 & 0.160 \\
+BERT $\leftrightarrow$ RoBERTa & 0.520 & 0.539 & 0.108 \\
+BERT $\leftrightarrow$ ELECTRA & 0.510 & 0.571 & 0.104 \\
+BERT $\leftrightarrow$ OPT & 0.477 & 0.566 & 0.152 \\
+BERT $\leftrightarrow$ GPT-Neo & 0.349 & 0.456 & 0.157 \\
+RoBERTa $\leftrightarrow$ OPT & 0.342 & 0.402 & 0.137 \\
+ELECTRA $\leftrightarrow$ OPT & 0.323 & 0.496 & 0.148 \\
+GPT-2 $\leftrightarrow$ OPT & 0.289 & 0.687 & 0.135 \\
+GPT-2 $\leftrightarrow$ GPT-Neo & 0.231 & 0.664 & 0.119 \\
+BERT $\leftrightarrow$ GPT-2 & 0.225 & 0.509 & 0.124 \\
+RoBERTa $\leftrightarrow$ GPT-Neo & 0.206 & 0.276 & 0.161 \\
+ELECTRA $\leftrightarrow$ GPT-2 & 0.189 & 0.448 & 0.119 \\
+ELECTRA $\leftrightarrow$ GPT-Neo & 0.188 & 0.364 & 0.160 \\
+RoBERTa $\leftrightarrow$ GPT-2 & 0.182 & 0.328 & 0.121 \\
+\bottomrule
+\end{tabular}
+\caption{Global-average model proximity metrics across all settings.}
+\label{tab:proximity}
+\end{table}

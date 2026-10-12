@@ -1,0 +1,36 @@
+\begin{table}[!ht]
+\centering
+\footnotesize
+\begin{tabular}{llcc}
+\toprule
+\textbf{Model} & \textbf{Repr.} & \textbf{Top-5 var.\ share} & \textbf{PC1--len corr} \\
+\midrule
+BERT & avg4_corr & 0.05 & 0.08 \\
+ELECTRA & avg4_corr & 0.09 & 0.20 \\
+GPT-2 & avg4_corr & 0.10 & -0.15 \\
+GPT-Neo & avg4_corr & 0.10 & 0.05 \\
+OPT & avg4_corr & 0.03 & 0.02 \\
+RoBERTa & avg4_corr & 0.09 & 0.07 \\
+BERT & avg4_raw & 0.05 & 0.03 \\
+ELECTRA & avg4_raw & 0.10 & 0.18 \\
+GPT-2 & avg4_raw & 0.65 & 0.03 \\
+GPT-Neo & avg4_raw & 0.64 & -0.52 \\
+OPT & avg4_raw & 0.55 & -0.34 \\
+RoBERTa & avg4_raw & 0.10 & 0.07 \\
+BERT & last_corr & 0.05 & 0.01 \\
+ELECTRA & last_corr & 0.10 & -0.00 \\
+GPT-2 & last_corr & 0.82 & 0.01 \\
+GPT-Neo & last_corr & 0.14 & -0.02 \\
+OPT & last_corr & 0.04 & -0.01 \\
+RoBERTa & last_corr & 0.11 & 0.05 \\
+BERT & last_raw & 0.04 & -0.00 \\
+ELECTRA & last_raw & 0.12 & -0.01 \\
+GPT-2 & last_raw & 0.93 & -0.07 \\
+GPT-Neo & last_raw & 0.15 & -0.02 \\
+OPT & last_raw & 0.03 & 0.00 \\
+RoBERTa & last_raw & 0.11 & 0.05 \\
+\bottomrule
+\end{tabular}
+\caption{Artifact diagnostics.}
+\label{tab:diagnostics}
+\end{table}

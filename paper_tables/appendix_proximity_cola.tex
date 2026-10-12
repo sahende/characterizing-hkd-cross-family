@@ -1,0 +1,19 @@
+\begin{table}[!ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+& \textbf{BERT} & \textbf{RoBERTa} & \textbf{ELECTRA} & \textbf{GPT-2} & \textbf{GPT-Neo} & \textbf{OPT} \\
+\midrule
+BERT & 1.00 & 0.50 & 0.50 & 0.13 & 0.14 & 0.27 \\
+RoBERTa & 0.50 & 1.00 & 0.54 & 0.10 & 0.12 & 0.24 \\
+ELECTRA & 0.50 & 0.54 & 1.00 & 0.10 & 0.13 & 0.24 \\
+GPT-2 & 0.13 & 0.10 & 0.10 & 1.00 & 0.16 & 0.22 \\
+GPT-Neo & 0.14 & 0.12 & 0.13 & 0.16 & 1.00 & 0.43 \\
+OPT & 0.27 & 0.24 & 0.24 & 0.22 & 0.43 & 1.00 \\
+\bottomrule
+\end{tabular}
+\caption{COLA proximity matrix (CKA last).}
+\label{tab:proximity_cola}
+\end{table}

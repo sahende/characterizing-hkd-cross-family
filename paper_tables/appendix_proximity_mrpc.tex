@@ -1,0 +1,19 @@
+\begin{table}[!ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+& \textbf{BERT} & \textbf{RoBERTa} & \textbf{ELECTRA} & \textbf{GPT-2} & \textbf{GPT-Neo} & \textbf{OPT} \\
+\midrule
+BERT & 1.00 & 0.43 & 0.39 & 0.18 & 0.37 & 0.46 \\
+RoBERTa & 0.43 & 1.00 & 0.64 & 0.09 & 0.13 & 0.24 \\
+ELECTRA & 0.39 & 0.64 & 1.00 & 0.08 & 0.09 & 0.22 \\
+GPT-2 & 0.18 & 0.09 & 0.08 & 1.00 & 0.22 & 0.25 \\
+GPT-Neo & 0.37 & 0.13 & 0.09 & 0.22 & 1.00 & 0.66 \\
+OPT & 0.46 & 0.24 & 0.22 & 0.25 & 0.66 & 1.00 \\
+\bottomrule
+\end{tabular}
+\caption{MRPC proximity matrix (CKA last).}
+\label{tab:proximity_mrpc}
+\end{table}

@@ -1,0 +1,19 @@
+\begin{table}[!ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccc}
+\toprule
+& \textbf{BERT} & \textbf{RoBERTa} & \textbf{ELECTRA} & \textbf{GPT-2} & \textbf{GPT-Neo} & \textbf{OPT} \\
+\midrule
+BERT & 1.00 & 0.81 & 0.83 & 0.47 & 0.47 & 0.70 \\
+RoBERTa & 0.81 & 1.00 & 0.87 & 0.45 & 0.43 & 0.67 \\
+ELECTRA & 0.83 & 0.87 & 1.00 & 0.44 & 0.42 & 0.65 \\
+GPT-2 & 0.47 & 0.45 & 0.44 & 1.00 & 0.42 & 0.52 \\
+GPT-Neo & 0.47 & 0.43 & 0.42 & 0.42 & 1.00 & 0.60 \\
+OPT & 0.70 & 0.67 & 0.65 & 0.52 & 0.60 & 1.00 \\
+\bottomrule
+\end{tabular}
+\caption{SST2 proximity matrix (CKA last).}
+\label{tab:proximity_sst2}
+\end{table}
